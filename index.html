@@ -43,6 +43,7 @@
         <a href="#" onclick="changeLevel(1);">easy</a>
         <a href="#" onclick="changeLevel(2);">medium</a>
         <a href="#" onclick="changeLevel(3);">hard</a>
+        <a href="#" onclick="changeLevel(4);">tall</a>
     </div>
    
     <script>
@@ -51,6 +52,8 @@
             easy   : { width:  9, height:  9, mines: 10 },
             medium : { width: 16, height: 16, mines: 40 },
             hard   : { width: 30, height: 16, mines: 99 },
+            tall   : { width: 16, height: 30, mines: 99 },
+
         };
 
         var grid = document.getElementById('grid'),
@@ -66,6 +69,7 @@
                 case 1:  game = level.easy;   break;
                 case 2:  game = level.medium; break;
                 case 3:  game = level.hard;   break;
+                case 4:  game = level.tall;   break;
             }
            
             newGame();

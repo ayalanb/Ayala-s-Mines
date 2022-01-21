@@ -134,11 +134,8 @@
 
                 .keyup(function(ev) { //------------------------------------------------------------
 
-                    if (busy)
+                    if (busy || gameEnded())
                         return ev.preventDefault();
-
-                    if (gameEnded())
-                        return message('Click on title for New Game');
 
                     let $input = $(this);
                     

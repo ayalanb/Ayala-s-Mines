@@ -237,8 +237,17 @@
 
 
             function colorLetter(letter, color, row, col) {
+                
                 $('.row:nth-child(' + (row + 1) + ') > input:nth-child(' + (col + 1) +')').addClass(color).val(letter);
-                $('#' + letter + ':not(.green):not(.grey)').removeClass().addClass(color);
+                
+                $letter = $('#' + letter;)
+                
+                if ($letter.hasClass('green'))
+                    return;
+                if ($letter.hasClass('yellow') && color == 'grey')
+                    return;
+
+                $letter.removeClass().addClass(color);
             }
 
             

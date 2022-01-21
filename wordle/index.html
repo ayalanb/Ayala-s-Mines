@@ -24,13 +24,11 @@
             font-size: 30px;
             text-transform: uppercase;
         }
-
         input.green { background: #538d4e; color: #fff; border: none; }
         input.yellow { background: #b59f3b; border: none; }
         input.grey { background: #333; }
 
         #alphabet { margin: 70px auto; }
-
         span {
             display: inline-block;
             margin: 2px;
@@ -42,11 +40,15 @@
         span.yellow { background: #b59f3b; }
         span.grey { background: #333; color: #555; }
 
-        #msg {
+        #messages {
             position: absolute;
             z-index: 10;
             top: 120px; left: 50%;
             transform: translateX(-50%);
+            background: transparent;
+        }
+        #messages > div {
+            margin: 10px;
             padding: 10px 20px;
             background: #ccc; color: #222;
             border-radius: 5px;
@@ -63,13 +65,120 @@
     <a id="title" href="#">WORDLE</a>
     <div id="grid"></div>
     <div id="alphabet"></div>
-    <div id="msg"></div>
+    <div id="messages"></div>
 
     <script>
 
         $(function() {
 
-            function newGame() { //-----------------------------------------------------------------
+            var wordle = JSON.parse(localStorage.getItem('wordle')),
+                $messages = $('#messages'),
+                busy = false,
+                api = {
+                    url: 'https://dictionaryapi.com/api/v3/references/collegiate/json/',
+                    key: '48f278fa-d675-4929-b87d-de63e0329f9c',
+                };
+
+
+            // create the grid
+            for (let r = 0; r < 6; r++) {
+                let $row = $('<div class="row">');
+                for (let c = 0; c < 5; c++)
+                    $row.append('<input type="text" maxlength="1"/>');
+                $('#grid').append($row);
+            }
+
+            // create alphabet
+            for (const letter of 'abcdefghijklmnopqrstuvwxyz')
+                $('#alphabet').append('<span id="' + letter + '">' + letter.toUpperCase() + '</span>');
+
+       
+            // click on title for new game
+            $('#title').click(function(ev) {
+                ev.preventDefault();
+                newGame();
+                showColors();
+            });
+
+           
+            if (!wordle)
+                newGame();
+
+            showColors();
+
+
+            // keyboard stuff ----------------------------------------------------------------------
+
+            $('input')
+
+                .on('input', function(ev) { //------------------------------------------------------
+
+                    let $input = $(this);
+                
+                    if ($input.val())
+                        $input.next().focus().select();
+
+                })
+
+                .keydown(function(ev) { //----------------------------------------------------------
+                    
+                    if (busy || gameEnded())
+                        return ev.preventDefault();
+                    
+                    let $input = $(this);
+                    
+                    if ((ev.which == 8 || ev.which == 48) && !$input.val()) // backspace, delete
+                        $input.prev().focus().select();
+
+                })
+
+                .keyup(function(ev) { //------------------------------------------------------------
+
+                    if (busy)
+                        return ev.preventDefault();
+
+                    if (gameEnded())
+                        return message('Click on title for New Game');
+
+                    let $input = $(this);
+                    
+                    if (ev.which == 37) // left
+                        $input.prev().focus().select();
+
+                    else if (ev.which == 39) // right
+                        $input.next().focus().select();
+
+                    else if (ev.which == 13) { // enter
+ 
+                        let word = '';
+                        $('input:not([readonly])').each(function() { word += $(this).val().toLowerCase(); });
+
+                        if (!/[a-zA-Z]{5}/.test(word))
+                            return message('More letters, please!');
+                        
+                        busy = true;
+                        $.get(api.url + word, { 'key': api.key })
+                            .done(function(data) {
+                                if (data[0].meta) { // word exists
+                                    wordle.attempts.push(word);
+                                    localStorage.setItem('wordle', JSON.stringify(wordle));
+                                    showColors();
+                                    if (word == wordle.word)
+                                        message('Well played! :)');
+                                    else if (wordle.attempts.length == 6)
+                                        message(wordle.word.toUpperCase() + ' :(');
+                                } else message('Word not found');
+                            })
+                            .fail(function() { message('Dictionary API is not working'); })
+                            .always(function() { busy = false; });
+                    }
+
+                });
+
+
+            // functions ---------------------------------------------------------------------------
+
+            function newGame() {
     
                 wordle = {
                     word: words[Math.floor(Math.random() * words.length)],
@@ -82,123 +191,68 @@
                 $('span').each(function(){ $(this).removeClass(); });
             }
 
+            function gameEnded() {
+                
+                if (wordle.attempts.length == 6)
+                    return true;
 
-            function showColors() { //--------------------------------------------------------------
+                if (wordle.attempts.includes(wordle.word))
+                    return true;
+
+                return false;
+
+            }
+
+            function showColors() {
 
                 for (let row = 0; row < wordle.attempts.length; row++) {
 
-                    let word = wordle.attempts[row];
-                    
+                    let word = wordle.attempts[row],
+                        occurances = matches = [];
+
                     for (let col = 0; col < 5; col++) {
-                    
-                        let letter = word.charAt(col).toLowerCase();
-                        
-                        if (wordle.word.includes(letter)) {
-                            if (wordle.word.charAt(col) == letter)
-                                colorLetter(letter, 'green', row, col);
-                            else
-                                colorLetter(letter, 'yellow', row, col);
+                        let letter = word[col];
+                        if (!(letter in occurances))
+                            occurances[letter] = wordle.word.split(letter).length - 1;
+                        if (letter == wordle.word[col]) {
+                            colorLetter(letter, 'green', row, col);
+                            occurances[letter]--;
+                            matches.push(col);
                         }
+                    }
+
+                    for (let col = 0; col < 5; col++) {
+                        if (matches.includes(col)) continue;
+                        let letter = word[col];
+                        if (occurances[letter]-- > 0)
+                            colorLetter(letter, 'yellow', row, col);
                         else
                             colorLetter(letter, 'grey', row, col);
-
-                    }   
+                    }
 
                 }
 
                 $('input').prop('readonly', true);
-                if ($('.row:nth-child(' + wordle.attempts.length + ') > input.green').length < 5)
+                if (!gameEnded())
                     $('.row:nth-child(' + (wordle.attempts.length + 1) + ') > input').prop('readonly', false).first().focus();
-                else
-                    showMsg('Well played! :)');
-
 
             }
 
 
-            function colorLetter(letter, color, row, col) { //--------------------------------------
-
+            function colorLetter(letter, color, row, col) {
                 $('.row:nth-child(' + (row + 1) + ') > input:nth-child(' + (col + 1) +')').addClass(color).val(letter);
-                $('#' + letter + ':not(.green)').addClass(color);
-
-
+                $('#' + letter).addClass(color);
             }
 
             
-            function showMsg(msg) { //--------------------------------------------------------------
+            function message(msg) {
 
-                $('#msg').html(msg).fadeIn(200).delay(1500).fadeOut(500);
+                $msg = $('<div>' + msg + '</div>');
+                $messages.append($msg);
+                $msg.fadeIn(200).delay(1500).fadeOut(500);
 
             }
 
-
-            // let's begin! ------------------------------------------------------------------------
-
-            // create the grid
-            for (let r = 0; r < 6; r++) {
-                let $row = $('<div class="row">');
-                for (let c = 0; c < 5; c++)
-                    $row.append('<input type="text" maxlength="1"/>');
-                $('#grid').append($row);
-            }
-
-            // alphabet
-            for (const letter of 'abcdefghijklmnopqrstuvwxyz')
-                $('#alphabet').append('<span id="' + letter + '">' + letter.toUpperCase() + '</span>');
-
-        
-            $('#title').click(function(ev) {
-                ev.preventDefault();
-                newGame();
-                showColors();
-            });
-
-            var wordle = JSON.parse(localStorage.getItem('wordle')),
-                api = {
-                    url: 'https://dictionaryapi.com/api/v3/references/collegiate/json/',
-                    key: '48f278fa-d675-4929-b87d-de63e0329f9c',
-                };
-            
-            if (!wordle) newGame();
-            showColors();
-
-
-            $('input')
-                .on('input', function(ev) { // input changed value
-                    let $input = $(this);
-                    if ($input.val())
-                        $input.next().focus().select();
-                })
-                .keydown(function(ev) { // backspace and delete
-                    let $input = $(this);
-                    if ((ev.which == 8 || ev.which == 48) && !$input.val())
-                        $input.prev().focus().select(); return;
-                })
-                .keyup(function(ev) {
-
-                    let $input = $(this);
-                    
-                    if (ev.which == 37) // left arrow
-                        $input.prev().focus().select();
-                    else if (ev.which == 39) // right arrow
-                        $input.next().focus().select();
-                    else if (ev.which == 13) { // enter
-
-                        let word = '';
-                        $('input:not([readonly])').each(function() { word += $(this).val().toLowerCase(); });
-
-                        if (!/[a-zA-Z]{5}/.test(word)) return showMsg('More letters, please!');
-                        
-                        $.get(api.url + word, {'key': api.key}, function(data) {
-                            if (data[0].meta) { // word exists
-                                wordle.attempts.push(word);
-                                localStorage.setItem('wordle', JSON.stringify(wordle));
-                                showColors();
-                            } else showMsg("I don't know that word.");
-                        });
-                    }
-
-                });
 
         });
     

@@ -77,7 +77,8 @@
                 api = {
                     url: 'https://dictionaryapi.com/api/v3/references/collegiate/json/',
                     key: '48f278fa-d675-4929-b87d-de63e0329f9c',
-                };
+                },
+                messages = ['Lucky you!', 'Genious!', 'Amazing!', 'Well played!', 'You did it!', 'Not bad!'];
 
 
             // create the grid
@@ -161,7 +162,7 @@
                                     localStorage.setItem('wordle', JSON.stringify(wordle));
                                     showColors();
                                     if (word == wordle.word)
-                                        message('Well played! :)');
+                                        message(messages[wordle.attempts.length - 1]);
                                     else if (wordle.attempts.length == 6)
                                         message(wordle.word.toUpperCase() + ' :(');
                                 } else message('Word not found');
